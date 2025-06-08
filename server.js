@@ -9,13 +9,6 @@ const io = require('socket.io')(server, {
 });
 const cors = require('cors');
 const { WebcastPushConnection } = require('tiktok-live-connector');
-const mysql = require('mysql2');
-const db = mysql.createPool({
-    host: 'localhost', // Render.com'da kendi DB hostunu yaz
-    user: 'db_kullanici',
-    password: 'db_sifre',
-    database: 'db_adi'
-});
 
 app.use(cors());
 app.use(express.json());
@@ -51,13 +44,6 @@ let targetKeyword = '';
 let allowDuplicateUsers = false;
 
 function logConnectionEvent(email, tiktokUsername, eventType) {
-    db.query(
-        'INSERT INTO connection_logs (email, tiktok_username, event_type) VALUES (?, ?, ?)',
-        [email, tiktokUsername, eventType],
-        (err) => {
-            if (err) console.log('DB log hatası:', err);
-        }
-    );
     console.log(`[${new Date().toISOString()}] ${email || '-'} - ${tiktokUsername || '-'}: ${eventType}`);
 }
 
