@@ -9,6 +9,13 @@ const io = require('socket.io')(server, {
 });
 const cors = require('cors');
 const { WebcastPushConnection } = require('tiktok-live-connector');
+const mysql = require('mysql2');
+const db = mysql.createPool({
+    host: 'localhost', // Render.com'da kendi DB hostunu yaz
+    user: 'db_kullanici',
+    password: 'db_sifre',
+    database: 'db_adi'
+});
 
 app.use(cors());
 app.use(express.json());
@@ -43,16 +50,32 @@ let participants = new Map(); // userId -> participant object
 let targetKeyword = '';
 let allowDuplicateUsers = false;
 
+function logConnectionEvent(email, tiktokUsername, eventType) {
+    db.query(
+        'INSERT INTO connection_logs (email, tiktok_username, event_type) VALUES (?, ?, ?)',
+        [email, tiktokUsername, eventType],
+        (err) => {
+            if (err) console.log('DB log hatası:', err);
+        }
+    );
+    console.log(`[${new Date().toISOString()}] ${email || '-'} - ${tiktokUsername || '-'}: ${eventType}`);
+}
+
 io.on('connection', (socket) => {
     let tiktokConnection;
+    let currentEmail = null;
+    let currentTiktokUsername = null;
 
     // TikTok odasına bağlanma
-    socket.on('connect-to-room', async ({ username, keyword, allowDuplicates }) => {
+    socket.on('connect-to-room', async ({ username, keyword, allowDuplicates, email }) => {
+        currentEmail = email || null;
+        currentTiktokUsername = username;
         try {
             // Önceki bağlantıyı temizle
             if (tiktokConnection) {
                 tiktokConnection.disconnect();
                 participants.clear();
+                logConnectionEvent(currentEmail, currentTiktokUsername, 'disconnect');
             }
 
             targetKeyword = keyword.toLowerCase();
@@ -65,6 +88,7 @@ io.on('connection', (socket) => {
                     type: 'success',
                     message: `${username} kullanıcısının yayınına başarıyla bağlanıldı!`
                 });
+                logConnectionEvent(currentEmail, currentTiktokUsername, 'connect');
             } catch (connectError) {
                 socket.emit('connection-success', {
                     type: 'error',
@@ -86,6 +110,7 @@ io.on('connection', (socket) => {
                     type: 'error',
                     message: 'Canlı yayın bağlantısı kesildi'
                 });
+                logConnectionEvent(currentEmail, currentTiktokUsername, 'disconnect');
             });
 
             // Chat mesajlarını dinle
@@ -153,6 +178,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         if (tiktokConnection) {
             tiktokConnection.disconnect();
+            logConnectionEvent(currentEmail, currentTiktokUsername, 'disconnect');
         }
     });
 });
