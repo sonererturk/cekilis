@@ -62,20 +62,30 @@ io.on('connection', (socket) => {
             try {
                 await tiktokConnection.connect();
                 socket.emit('connection-success', {
-                    message: `${username} odasına başarıyla bağlanıldı!`
+                    type: 'success',
+                    message: `${username} kullanıcısının yayınına başarıyla bağlanıldı!`
                 });
             } catch (connectError) {
-                socket.emit('error', getLocalizedError(connectError.message || connectError));
+                socket.emit('connection-success', {
+                    type: 'error',
+                    message: getLocalizedError(connectError.message || connectError)
+                });
                 return;
             }
 
             // Bağlantı hata olaylarını dinle
             tiktokConnection.on('error', (err) => {
-                socket.emit('error', getLocalizedError(err.message || err));
+                socket.emit('connection-success', {
+                    type: 'error',
+                    message: getLocalizedError(err.message || err)
+                });
             });
 
             tiktokConnection.on('disconnect', () => {
-                socket.emit('error', 'Canlı yayın bağlantısı kesildi');
+                socket.emit('connection-success', {
+                    type: 'error',
+                    message: 'Canlı yayın bağlantısı kesildi'
+                });
             });
 
             // Chat mesajlarını dinle
